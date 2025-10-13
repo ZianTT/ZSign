@@ -3,8 +3,10 @@
 # All rights reserved.
 # DO NOT SHARE THIS FILE WITH ANYONE WHO DO NOT HAVE THE ACCESSS
 # ==================================
+import ctypes
 from flask import Flask, request, jsonify
 import sys
+import os
 import frida
 import time
 import threading
@@ -143,9 +145,9 @@ class TargetFunctionCaller:
                 return jsonify({"status": "error", "message": "版本号不匹配"})
             try:
                 # check if self pointer is available
-                self_ptr = self.get_self_pointer()
-                if not self_ptr:
-                    return jsonify({"status": "error", "message": "尚未捕获完成初始化，请联系管理员"})
+                # self_ptr = self.get_self_pointer()
+                # if not self_ptr:
+                #     return jsonify({"status": "error", "message": "尚未捕获完成初始化，请联系管理员"})
                 data = request.get_json()
                 if not data:
                     return jsonify({"status": "error", "message": "缺少 JSON 数据"})
@@ -216,7 +218,7 @@ class TargetFunctionCaller:
                 # 按进程名附加
                 self.session = frida.attach(self.target_process)
                 
-            with open('agent.js', 'r', encoding='utf-8') as f:
+            with open('agent2.js', 'r', encoding='utf-8') as f:
                 script_code = f.read()
                 
             self.script = self.session.create_script(script_code)
@@ -232,7 +234,8 @@ class TargetFunctionCaller:
     def get_self_pointer(self):
         """获取从 hook 中捕获的 self 指针"""
         try:
-            self_ptr = self.script.exports_sync.getself()
+            # self_ptr = self.script.exports_sync.getself()
+            self_ptr = "NO SELF POINTER ANYMORE"
             if self_ptr:
                 print(f"获取到 self 指针: {self_ptr}")
                 return self_ptr
@@ -247,9 +250,10 @@ class TargetFunctionCaller:
         """调用目标函数"""
         try:
             # 首先获取 self 指针
-            self_ptr = self.get_self_pointer()
-            if not self_ptr:
-                return None
+            # self_ptr = self.get_self_pointer()
+            # if not self_ptr:
+            #     return None
+            self_ptr = 0x1  # 占位符，实际调用中应使用真实 self 指针
             result = self.script.exports_sync.sign(
                 self_ptr, cmd_str, data_str, seq
             )
@@ -270,13 +274,26 @@ class TargetFunctionCaller:
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python call_function.py <进程名或PID> [端口]")
+        print("用法: python call_function.py [端口]")
         return
     
-    target_process = sys.argv[1]
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
     
-    caller = TargetFunctionCaller(target_process)
+    target_process = "/opt/QQ/qq"
+    def run_qq():
+        os.environ['DISPLAY'] = ':1.0'
+        os.system(f"{target_process}")
+    threading.Thread(target=run_qq, daemon=True).start()
+    time.sleep(2)
+    # get the pid of the target process
+    pid = os.popen(f"pidof {target_process}").read().strip().split()[-1]
+    if not pid:
+        print("目标进程启动失败")
+        return
+    
+    time.sleep(10)
+
+    caller = TargetFunctionCaller(pid)
     
     if not caller.attach():
         return
@@ -285,9 +302,9 @@ def main():
     # 启动 HTTP 服务器
     caller.start_http_server(port=port)
 
-    print("等待捕获 self 指针...")
-    while not caller.get_self_pointer():
-        time.sleep(2)
+    # print("等待捕获 self 指针...")
+    # while not caller.get_self_pointer():
+    #     time.sleep(2)
 
     try:
         while True:
