@@ -251,6 +251,39 @@ function cleanUp() {
     }
 }
 
+function analyzeA1Structure(a1) {
+    console.log("前16字节内存:");
+    console.log(hexdump(a1, { length: 16, header: true, ansi: true }));
+    console.log("Calculated values:");
+    console.log("  start: " + new NTStr(a1));
+    console.log("  v8: " + new NTStr(a1.add(16)));
+    console.log("  v9: " + new NTStr(a1.add(40)));
+    console.log("  v10: " + new NTStr(a1.add(64)));
+    console.log("  v11: " + new NTStr(a1.add(88)));
+    console.log("  v12: " + new NTStr(a1.add(112)));
+
+}
+
+let v8 = createNTStrAuto("");
+let v9 = createNTStrAuto("");
+let v10 = createNTStrAuto("V1_LNX_NQ_3.2.19_39038_GW_B"); //V1_LNX_NQ_3.2.19_39038_GW_B
+let v11 = createNTStrAuto("0"); //UIN
+let v12 = createNTStrAuto("c36a9912b1eba21237cf0f2e6d74b01c");
+
+function createA1Structure() {
+    const a1 = Memory.alloc(128);
+    a1.add(8).writeU8(0x01);
+    a1.add(16).writePointer(v8);
+    a1.add(40).writePointer(v9);
+    a1.add(64).writePointer(v10);
+    a1.add(88).writePointer(v11);
+    a1.add(112).writePointer(v12);
+    return a1;
+}
+
+let a1s = createA1Structure();
+
+
 // IDA中的地址 (Adjust this offset based on your architecture if necessary, 0x05ADE231 is large)
 const targetAddr = baseAddr.add(0x28F3310); 
 console.log('targetAddr:', targetAddr);
@@ -269,6 +302,12 @@ Interceptor.attach(targetAddr, {
         // to uint32
         this.seq = args[4]>>>0;
         console.log(`\targ[4] (Seq): ${this.seq}`);
+
+        if (args[0].isNull()) {
+            console.log('\tSelf: [Skipping: Address is null or length is zero]');
+        } else {
+            analyzeA1Structure(args[0]);
+        }
         
         // --- Read and print args[1] content ---
         if (args[1].isNull()) {
@@ -391,7 +430,8 @@ rpc.exports = {
         try {
             cleanUp();
             // 创建参数
-            const self = ptr(selfPtr);
+            // const self = ptr(selfPtr);
+            const self = a1s;
             const cmd = createNTStrAuto(cmdStr);
             const data = createSignReqDataFromString(dataStr);
             const outputBuffer = Memory.alloc(72); // 分配输出缓冲区
