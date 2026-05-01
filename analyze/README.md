@@ -18,6 +18,10 @@ This directory documents the current reverse-engineering state for the Linux QQ
   - Opcode `0x79` environment byte.
   - `madvise`, `/proc/<pid>/comm`, `frida-agent`, wrapper path checks.
   - Why default Python environment uses byte `0x00` for current traces.
+- [`a1_structure.md`](a1_structure.md)
+  - Native `a1` / self object string-slot layout.
+  - Mapping from init input to `a1+16/+40/+64/+88/+112`.
+  - Which apparent blank fields are runtime/report fields rather than signer inputs.
 - [`frida_tracing.md`](frida_tracing.md)
   - Which Frida scripts are safe/current.
   - Known pitfalls: `-q`, spawn vs attach, stdout mixing, Frida detection.

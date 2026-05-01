@@ -1592,18 +1592,29 @@ class SecurityState:
     enabled == *(sub_5570126()+1)
     mode    == *(sub_5564244()+160)
     tamper_flag == dword_79ED398, set by the wrapper.node dladdr check.
+
+    Native `a1` is a C++ object with 24-byte std::string-like slots, not a flat
+    POD struct.  The initializer copies:
+      a1+16  = data directory/base path
+      a1+40  = secondary path/config string
+      a1+64  = QUA/version
+      a1+88  = UIN
+      a1+112 = GUID
+    `sub_2BF4E50` then passes a five-pointer array to global init:
+      [data_dir, runtime_session_string, qua, uin, guid]
+    where runtime_session_string comes from sub_29FF8E0/sub_29FFC30, not from
+    `a1`.  See analyze/a1_structure.md for the full audit.
     """
 
     def __init__(self):
         self.enabled = True
         self.mode = 0
         self.tamper_flag = False
-        # Fields carried by the `self`/A1 structure passed to sub_2BF4E50.
-        # ZSign builds these at offsets a1+64/a1+88/a1+112 before the first
-        # signing call.  Native copies them into global SDK/security config in
-        # sub_5575184 -> sub_557566C, and later sub_556440D/sub_5555707 consume
-        # the initialized globals.  They are kept explicit here so API callers
-        # cannot accidentally drop version-bound inputs.
+        # Signer-relevant fields carried by the `self`/A1 structure passed to
+        # sub_2BF4E50.  Native copies a1+64/+88/+112 into global SDK/security
+        # config in sub_5575184 -> sub_557566C -> sub_557E8BA.  Other A1 slots
+        # (data directory and secondary path/config) are broader SDK init inputs
+        # and are documented in analyze/a1_structure.md.
         self.qua = "V1_LNX_NQ_3.2.22_42941_GW_B"
         self.uin = "0"
         self.guid = "14dd2dee2a8321b8f3461a197ee0b7a2"
