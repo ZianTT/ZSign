@@ -543,15 +543,15 @@ wired into Python, not by assuming linear reachability.
   * `sub_5B63952` (`0x5B63952`): opens `/proc/self/maps` while extracting a
     runtime table.  Frida/Gum mappings in this file can change this helper's
     result or failure path.
-* A research bypass script exists at `frida_bypass_antitrace.js`.  It hooks
+* A research bypass script exists at `script/frida_bypass_antitrace.js`.  It hooks
   libc `dladdr`, `madvise`, and `fopen` so wrapper-originated checks see a
   wrapper/QQ-like environment and `/proc/self/maps` with Frida/Gum lines
   filtered.  Use it before the trace script:
 
   ```bash
   frida -p <QQ_PID> \
-    -l frida_bypass_antitrace.js \
-    -l frida_trace_ll_safe.js \
+    -l script/frida_bypass_antitrace.js \
+    -l script/frida_trace_ll_safe.js \
     -o ll_cleanish_trace.jsonl
   ```
 

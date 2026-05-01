@@ -63,9 +63,11 @@ class ApiConfig:
     state_mode: int = 0
     image_path: str = "wrapper.node"
     proc_comm: str = "qq"
-    madvise_success: bool = True
+    env_flags: int | None = None
+    madvise_success: bool = False
     global_i1_52_valid: bool = True
     dword_79ED4F0: int = 0
+    dword_79ED398: int | None = None
     allow_unverified_sign: bool = False
 
 
@@ -114,12 +116,16 @@ def _payload_from_request(body: dict[str, Any]) -> tuple[str, bytes, int, int]:
 
 def _build_env(config: ApiConfig, body: dict[str, Any]) -> NativeEnvironment:
     env_body = body.get("env", {}) if isinstance(body.get("env", {}), dict) else {}
+    env_flags = env_body.get("env_flags", body.get("env_flags", config.env_flags))
+    dword_79ED398 = env_body.get("dword_79ED398", body.get("dword_79ED398", config.dword_79ED398))
     return NativeEnvironment(
         image_path=str(env_body.get("image_path", body.get("image_path", config.image_path))),
         proc_comm=str(env_body.get("proc_comm", body.get("proc_comm", config.proc_comm))),
+        env_flags_override=None if env_flags is None else int(env_flags),
         madvise_success=bool(env_body.get("madvise_success", body.get("madvise_success", config.madvise_success))),
         global_i1_52_valid=bool(env_body.get("global_i1_52_valid", body.get("global_i1_52_valid", config.global_i1_52_valid))),
         dword_79ED4F0=int(env_body.get("dword_79ED4F0", body.get("dword_79ED4F0", config.dword_79ED4F0))),
+        dword_79ED398_override=None if dword_79ED398 is None else int(dword_79ED398),
     )
 
 
@@ -158,8 +164,12 @@ def _sign_response(
         "cmd": cmd,
         "env_flags": env.flags_for_module(cmd),
         "env": {
+            "env_flags_override": env.env_flags_override,
+            "madvise_success": env.madvise_success,
             "dword_79ED398": env.dword_79ED398,
             "dword_79ED4F0": env.dword_79ED4F0,
+            "global_i1_52_valid": env.global_i1_52_valid,
+            "image_path": env.image_path,
             "proc_comm": env.proc_comm,
         },
         "a1": {
@@ -252,7 +262,14 @@ def main() -> None:
     parser.add_argument("--state-mode", type=int, default=0)
     parser.add_argument("--image-path", default="wrapper.node")
     parser.add_argument("--proc-comm", default="qq")
+    parser.add_argument("--env-flags", type=lambda value: int(value, 0), default=None,
+                        help="force exact opcode 0x79 environment byte, e.g. 0x04")
+    parser.add_argument("--madvise-success", action="store_true",
+                        help="set bit 0x01 unless --env-flags overrides it")
     parser.add_argument("--dword-79ed4f0", type=int, default=0)
+    parser.add_argument("--dword-79ed398", type=int, default=None)
+    parser.add_argument("--global-i1-52-invalid", action="store_true",
+                        help="set bit 0x80 for non-login modules unless --env-flags overrides it")
     parser.add_argument("--allow-unverified-sign", action="store_true")
     args = parser.parse_args()
 
@@ -265,7 +282,11 @@ def main() -> None:
         state_mode=args.state_mode,
         image_path=args.image_path,
         proc_comm=args.proc_comm,
+        env_flags=args.env_flags,
+        madvise_success=args.madvise_success,
+        global_i1_52_valid=not args.global_i1_52_invalid,
         dword_79ED4F0=args.dword_79ed4f0,
+        dword_79ED398=args.dword_79ed398,
         allow_unverified_sign=args.allow_unverified_sign,
     ))
     app.run(host=args.host, port=args.port, debug=False, use_reloader=False)

@@ -258,6 +258,10 @@ class NativeEnvironment:
 
     image_path: str = "wrapper.node"
     proc_comm: str = "qq"
+    # If set, bypass individual probes and force the exact opcode 0x79 byte.
+    # This is useful when replaying a native trace whose environment byte was
+    # captured directly.
+    env_flags_override: int | None = None
     # VM opcode 0x79 probes `madvise(obj_data, 0, 50) != -1` and writes the
     # result into raw output byte 5.  Native traces from the normal QQ process
     # show this byte is 0, i.e. the probe fails in the observed environment.
@@ -269,15 +273,22 @@ class NativeEnvironment:
     # Captured QQ traces used for byte-identical regression all show this bit is
     # clear, but keep it configurable for traces taken after detection fires.
     dword_79ED4F0: int = 0
+    # Optional direct override for the wrapper-path tamper global. If omitted,
+    # derive it from image_path, matching sub_557A6A0's effective condition.
+    dword_79ED398_override: int | None = None
 
     @property
     def dword_79ED398(self) -> int:
+        if self.dword_79ED398_override is not None:
+            return int(self.dword_79ED398_override)
         # Initialized elsewhere from image/module path checks. Native sets this
         # to 0 for the normal /opt/QQ/resources/app/wrapper.node mapping; if it
         # is 1, opcode 0x79 ORs raw byte 5 with 0x08.
         return 0 if "wrapper.node" in self.image_path else 1
 
     def flags_for_module(self, module_id: str) -> int:
+        if self.env_flags_override is not None:
+            return int(self.env_flags_override) & 0xFF
         flags = 1 if self.madvise_success else 0
         if "login" not in module_id and "Login" not in module_id:
             if not self.global_i1_52_valid:

@@ -13,7 +13,7 @@ truth.  Those samples may include anti-instrumentation/environment pollution.
 Clean validation must come from a non-Frida or otherwise decontaminated QQ /
 `wrapper.node` run with matching environment flags.
 
-For research-only cleaner traces, load `frida_bypass_antitrace.js` before the
+For research-only cleaner traces, load `script/frida_bypass_antitrace.js` before the
 trace script.  It forces wrapper-originated checks for `dladdr`, `madvise`,
 `/proc/<pid>/comm`, and `/proc/self/maps` toward the normal QQ/wrapper path, but
 the process is still Frida-attached and results must still be verified against a
@@ -28,6 +28,9 @@ python api_server.py --host 0.0.0.0 --port 5000
 Optional environment controls for the VM opcode `0x79` byte:
 
 ```bash
+python api_server.py --port 5000 --env-flags 0x00
+
+# Or model the native probes individually:
 python api_server.py --port 5000 --image-path wrapper.node --proc-comm qq --dword-79ed4f0 0
 ```
 
@@ -70,11 +73,13 @@ Request body:
   "key_material": "",
   "allow_unverified_sign": false,
   "env": {
+    "env_flags": 0,
     "image_path": "wrapper.node",
     "proc_comm": "qq",
-    "madvise_success": true,
+    "madvise_success": false,
     "global_i1_52_valid": true,
-    "dword_79ED4F0": 0
+    "dword_79ED4F0": 0,
+    "dword_79ED398": 0
   }
 }
 ```
@@ -87,7 +92,16 @@ Notes:
 - `seq` is echoed and defaults `sign_type` when `sign_type` is omitted.
 - `config_seed` and `key_material` are optional hex overrides for reconstructed
   global state.
-- `env` overrides the native environment checks that feed output byte `sign[5]`.
+- `env` overrides the native environment checks that feed opcode `0x79` byte.
+  - `env_flags` directly forces the exact byte and takes precedence over the
+    individual checks.
+  - If `env_flags` is omitted, the byte is computed from the modeled checks:
+    - `0x01`: `madvise_success=true`.
+    - `0x02`: `proc_comm` does not contain `qq`.
+    - `0x04`: `dword_79ED4F0 == 1` (`frida-agent` found in maps scan).
+    - `0x08`: `dword_79ED398 == 1`, or `image_path` does not contain
+      `wrapper.node` when `dword_79ED398` is omitted.
+    - `0x80`: non-login `cmd` and `global_i1_52_valid=false`.
 - `allow_unverified_sign=true` is required to return the reconstructed sign;
   otherwise the endpoint returns an error rather than pretending the sign is
   byte-identical.
@@ -107,10 +121,14 @@ Response shape follows ZSign:
   "verified_byte_identical": false,
   "seq": 123456,
   "cmd": "trpc.login.ecdh.EcdhService.SsoKeyExchange",
-  "env_flags": 1,
+  "env_flags": 0,
   "env": {
+    "env_flags_override": 0,
+    "madvise_success": false,
     "dword_79ED398": 0,
     "dword_79ED4F0": 0,
+    "global_i1_52_valid": true,
+    "image_path": "wrapper.node",
     "proc_comm": "qq"
   },
   "value": {
@@ -122,7 +140,7 @@ Response shape follows ZSign:
 ```
 
 `env_flags` is the exact byte inserted by VM opcode `0x79` at offset 5 of the
-21-byte native-wrapped sign.
+21-byte native-wrapped sign. Current clean regression traces use `0x00`.
 
 ## Example
 

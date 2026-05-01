@@ -11,6 +11,10 @@ the reconstructed wrapper output.
 - Python mirror: `NativeEnvironment.flags_for_module()` and opcode `0x79` in
   `decompiled/signature_algorithm.py`.
 
+For replaying captured native samples, `NativeEnvironment.env_flags_override`
+can force the exact byte directly. If it is `None`, the byte is computed from
+the modeled probe inputs below.
+
 ## Bit layout
 
 | Bit | Mask | Native trigger | IDA evidence |
@@ -199,9 +203,11 @@ So the byte-identical default is:
 NativeEnvironment(
     image_path="wrapper.node",
     proc_comm="qq",
+    env_flags_override=None,
     madvise_success=False,
     global_i1_52_valid=True,
     dword_79ED4F0=0,
+    dword_79ED398_override=None,
 )
 ```
 
