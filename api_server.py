@@ -87,6 +87,19 @@ def _json_error(message: str, status_code: int = 400, **extra: Any):
     return jsonify(payload), status_code
 
 
+def _log_sign_request(endpoint: str, body: dict[str, Any], env_flags: int, status: str) -> None:
+    cmd = str(body.get("cmd", body.get("command", "")))
+    seq = int(body.get("seq", body.get("sequence", 0)) or 0)
+    uin = str(body.get("uin", ""))
+    src_hex = str(body.get("src", body.get("body", "")) or "")
+    body_len = len(src_hex.strip()) // 2
+    print(
+        f"[sign] endpoint={endpoint} status={status} cmd={cmd} seq={seq} "
+        f"uin={uin or '-'} body_len={body_len} env_flags=0x{env_flags:02x}",
+        flush=True,
+    )
+
+
 def _build_state(config: ApiConfig, body: dict[str, Any]) -> SecurityState:
     state = SecurityState()
     state.qua = str(body.get("qua", body.get("version_qua", config.qua)))
@@ -250,18 +263,26 @@ def create_app(config: ApiConfig | None = None) -> Flask:
 
     @app.post("/api/sign/<version_code>")
     def sign(version_code: str):
+        body = request.get_json(silent=True) or {}
         try:
-            body = request.get_json(silent=True) or {}
-            return jsonify(_sign_response(config, body, version_code))
+            response = _sign_response(config, body, version_code)
+            _log_sign_request("zsign", body, int(response.get("env_flags", 0)), "ok")
+            return jsonify(response)
         except Exception as exc:  # keep ZSign-like JSON failures
+            try:
+                _log_sign_request("zsign", body, _build_env(config, body).flags_for_module(str(body.get("cmd", ""))), "error")
+            except Exception:
+                pass
             return _json_error(str(exc), 400)
 
     @app.post("/api/sign/sec-sign")
     def milky_sec_sign():
+        raw_body = request.get_json(silent=True) or {}
         try:
-            body = _milky_body_to_zsign_body(request.get_json(silent=True) or {}, config)
+            body = _milky_body_to_zsign_body(raw_body, config)
             response = _sign_response(config, body, VERSION_CODE[0] if VERSION_CODE else "42941")
             value = response["value"]
+            _log_sign_request("milky", body, int(response.get("env_flags", 0)), "ok")
             return jsonify({
                 "code": 0,
                 "message": "ok",
@@ -272,6 +293,11 @@ def create_app(config: ApiConfig | None = None) -> Flask:
                 },
             })
         except Exception as exc:
+            try:
+                body = _milky_body_to_zsign_body(raw_body, config)
+                _log_sign_request("milky", body, _build_env(config, body).flags_for_module(str(body.get("cmd", ""))), "error")
+            except Exception:
+                pass
             return jsonify({"code": 1, "message": str(exc), "value": None}), 400
 
     @app.post("/api/debug/md5")
