@@ -114,6 +114,29 @@ def _payload_from_request(body: dict[str, Any]) -> tuple[str, bytes, int, int]:
     return cmd, _hex_to_bytes(src_hex, "src"), seq, sign_type
 
 
+def _milky_body_to_zsign_body(body: dict[str, Any], config: ApiConfig) -> dict[str, Any]:
+    """Translate Lagrange.Milky Signer.cs sec-sign request shape.
+
+    Milky posts to /api/sign/sec-sign with {command, seq, body, guid, qua, uin}
+    and expects {code, message, value: {sec_sign, sec_token, sec_extra}}.
+    """
+    command = str(body.get("command", body.get("cmd", "")))
+    src = str(body.get("body", body.get("src", "")))
+    translated = dict(body)
+    translated["cmd"] = command
+    translated["src"] = src
+    translated["seq"] = int(body.get("seq", body.get("sequence", 0)))
+    translated["sign_type"] = int(body.get("sign_type", translated["seq"]))
+    translated["uin"] = str(body.get("uin", config.uin))
+    translated["guid"] = str(body.get("guid", config.guid))
+    translated["qua"] = str(body.get("qua", body.get("version_qua", config.qua)))
+    # Milky's Signer.cs does not send this research gate; compatibility endpoint
+    # should still return the expected sign object when the server was started
+    # for local signing.
+    translated["allow_unverified_sign"] = bool(body.get("allow_unverified_sign", config.allow_unverified_sign))
+    return translated
+
+
 def _build_env(config: ApiConfig, body: dict[str, Any]) -> NativeEnvironment:
     env_body = body.get("env", {}) if isinstance(body.get("env", {}), dict) else {}
     env_flags = env_body.get("env_flags", body.get("env_flags", config.env_flags))
@@ -232,6 +255,24 @@ def create_app(config: ApiConfig | None = None) -> Flask:
             return jsonify(_sign_response(config, body, version_code))
         except Exception as exc:  # keep ZSign-like JSON failures
             return _json_error(str(exc), 400)
+
+    @app.post("/api/sign/sec-sign")
+    def milky_sec_sign():
+        try:
+            body = _milky_body_to_zsign_body(request.get_json(silent=True) or {}, config)
+            response = _sign_response(config, body, VERSION_CODE[0] if VERSION_CODE else "42941")
+            value = response["value"]
+            return jsonify({
+                "code": 0,
+                "message": "ok",
+                "value": {
+                    "sec_sign": value["sign"],
+                    "sec_token": value["token"],
+                    "sec_extra": value["extra"],
+                },
+            })
+        except Exception as exc:
+            return jsonify({"code": 1, "message": str(exc), "value": None}), 400
 
     @app.post("/api/debug/md5")
     def debug_md5():

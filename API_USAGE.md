@@ -142,6 +142,50 @@ Response shape follows ZSign:
 `env_flags` is the exact byte inserted by VM opcode `0x79` at offset 5 of the
 21-byte native-wrapped sign. Current clean regression traces use `0x00`.
 
+### Lagrange.Milky sec-sign compatibility
+
+Compatible with `Lagrange.Milky/Utility/Signer.cs`:
+
+```text
+POST /api/sign/sec-sign
+Content-Type: application/json
+```
+
+Milky should configure signer base URL as the server root, for example:
+
+```text
+http://127.0.0.1:5000
+```
+
+Milky appends `/api/sign/sec-sign` itself.
+
+Request shape:
+
+```json
+{
+  "uin": 10000,
+  "command": "wtlogin.trans_emp",
+  "seq": 1,
+  "body": "020164",
+  "guid": "14dd2dee2a8321b8f3461a197ee0b7a2",
+  "qua": "V1_LNX_NQ_3.2.22_42941_GW_B"
+}
+```
+
+Response shape:
+
+```json
+{
+  "code": 0,
+  "message": "ok",
+  "value": {
+    "sec_sign": "...",
+    "sec_token": "...",
+    "sec_extra": "..."
+  }
+}
+```
+
 ## Example
 
 ```bash
