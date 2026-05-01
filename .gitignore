@@ -1,0 +1,45 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.venv-frida/
+
+# Local traces and runtime logs
+*.jsonl
+*.log
+*.trace
+core
+core.*
+
+# Native binaries, dumps, and reverse-engineering databases
+*.node
+*.so
+*.dll
+*.dylib
+*.exe
+*.bin
+*.dump
+*.dmp
+*.id0
+*.id1
+*.id2
+*.id3
+*.id4
+*.i64
+*.idb
+*.til
+*.nam
+*.asm
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+
+# Local probe scratch files
+decompiled/probe.txt
