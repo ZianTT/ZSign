@@ -1,0 +1,11 @@
+.git
+.github
+analyze
+script
+decompiled/ida_raw
+*.log
+*.jsonl
+*.bin
+*.node
+__pycache__
+*.pyc

@@ -1,0 +1,39 @@
+name: Build ZSign API image
+on:
+  push:
+    branches: [pure]
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check API source and health endpoint
+        run: |
+          python3 -m pip install -r requirements.txt
+          python3 -m py_compile api_server.py decompiled/signature_algorithm.py
+          python3 -c "from api_server import create_app; assert create_app().test_client().get('/health').status_code == 200"
+      - uses: docker/setup-buildx-action@v4
+      - name: Sign in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/ziantt/zsign:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Record immutable digest
+        run: echo "${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

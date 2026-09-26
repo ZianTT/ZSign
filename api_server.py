@@ -33,7 +33,7 @@ APPINFO: dict[str, Any] = {
     "AppClientVersion": 42941,
     "AppId": 1600001615,
     "AppIdQrCode": 13697054,
-    "CurrentVersion": "3.2.22-42941",
+    "CurrentVersion": "3.2.22-42941 Powered by ZSign",
     "Kernel": "Linux",
     "SdkInfo": {
         "MainSigMap": 169742560,
